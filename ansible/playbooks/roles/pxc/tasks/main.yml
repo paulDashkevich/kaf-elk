@@ -1,0 +1,157 @@
+---
+
+- name: Remove repository (and clean up left-over metadata)
+  yum_repository:
+      name: elasticsearch-7.x
+      file: elastic
+      state: absent
+
+- name: yum-clean-metadata
+  command: yum clean metadata
+  args:
+        warn: no
+
+- name: Add Percona repository
+  yum:
+      name: https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+      state: present
+
+- name: Enable pxc-80 and tools
+  shell: |
+      percona-release enable-only pxc-80 release
+      percona-release enable tools release
+
+- name: Installing from Percona repo
+  yum:
+      name: percona-xtradb-cluster
+      state: present
+
+- name: install python-mysql addon
+  yum:
+      name: "{{ item }}"
+      state: latest
+  with_items:
+      - MySQL-python.x86_64
+      - python36-PyMySQL.noarch
+
+- name: Enable and start MySQL
+  systemd:
+      name: mysqld
+      enabled: yes
+      state: started
+
+- name: Acquire temporary root pass
+  shell: awk '$0 ~ "temporary password" {print $13}' /var/log/mysqld.log
+  register: mysql_temp_password
+
+- debug:
+      msg: "{{ mysql_temp_password.stdout }}"
+
+- name: Copy .my.cnf file with root password credentials
+  template:
+      src: .my.cnf.j2
+      dest: /root/.my.cnf
+      owner: root
+      group: root
+      mode: 0600
+  when: mysql_temp_password is defined
+
+- name: Update mysql root password
+  shell: mysql -u root --password="{{ mysql_temp_password.stdout }}" -NBe 'ALTER USER "root"@"localhost" IDENTIFIED WITH mysql_native_password BY "{{ mysql_root_password }}";' --connect-expired-password
+  when: mysql_temp_password is defined
+
+- name: Create users and grant privileges
+  shell: mysql -u root --password="{{ mysql_root_password }}" -NBe "{{ item }}"
+  with_items:
+      - "CREATE USER {{ mysql_admin_username }} IDENTIFIED WITH mysql_native_password BY '{{ mysql_admin_password }}';"
+      - "GRANT ALL PRIVILEGES ON *.* TO '{{ mysql_admin_username }}' WITH GRANT OPTION;"
+
+- name: Stopping MySQL
+  systemd:
+      name: mysqld
+      state: stopped
+
+- name: Copy .my.cnf file with root password credentials
+  template:
+      src: bootstrap_my.cnf.j2
+      dest: /etc/my.cnf
+      owner: mysql
+      group: mysql
+      mode: 0600
+  when: ansible_hostname == "db1"
+
+- name: Copy .my.cnf file with root password credentials
+  template:
+      src: load_my.cnf.j2
+      dest: /etc/my.cnf
+      owner: mysql
+      group: mysql
+      mode: 0600
+  when: ansible_hostname != "db1"
+
+- name: Bootstrapping the first node
+  service:
+      name: mysql@bootstrap.service
+      state: started
+  when: ansible_hostname == "db1"
+
+- name: Starting last nodes
+  service:
+      name: mysql
+      state: started
+  when: ansible_hostname != "db1"
+
+- name: Stopping 1st node MySQL
+  systemd:
+      name: mysqld
+      state: stopped
+  when: ansible_hostname == "db1"
+
+- name: Copy .my.cnf file with root password credentials
+  template:
+      src: load_my.cnf.j2
+      dest: /etc/my.cnf
+      owner: mysql
+      group: mysql
+      mode: 0600
+  when: ansible_hostname == "db1"
+
+- name: Create WP DB
+  mysql_db:
+      name: wp
+      login_unix_socket: /var/lib/mysql/mysql.sock
+      login_user: root
+      login_password: "{{ mysql_root_password }}"
+      state: present
+  no_log: true
+  when: ansible_hostname == "db1"
+
+- name: Create db_user with all db_privileges
+  mysql_user:
+      name: wp
+      check_implicit_admin: yes
+      login_user: root
+      login_password: "{{ mysql_root_password }}"
+      password: wp_12345
+      priv: 'wp.*:ALL'
+      host: '%'
+      state: present
+  no_log: true
+  when: ansible_hostname == "db1"
+
+- name: Flush privileges
+  shell: mysql --user root --password={{ mysql_root_password }} --execute "FLUSH PRIVILEGES;"
+  when: ansible_hostname == "db1"
+
+- name: create monitoring user for proxysql
+  mysql_user:
+      name: monitor
+      check_implicit_admin: yes
+      login_user: root
+      login_password: "{{ mysql_root_password }}"
+      password: monitor
+      priv: '*.*:USAGE,GRANT'
+      host: '%'
+      state: present
+  no_log: true
+  when: ansible_hostname == "db1"

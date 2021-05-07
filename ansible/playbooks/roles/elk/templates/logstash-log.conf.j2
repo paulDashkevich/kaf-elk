@@ -1,0 +1,34 @@
+input {
+  kafka {
+    bootstrap_servers => 'kafka_1:9092'
+    topics => ["wordpress","nginx"]
+    codec => json
+  }
+}
+filter {
+	grok {
+	  match => [ "message" , "%{COMBINEDAPACHELOG}+%{GREEDYDATA:extra_fields}"]
+          overwrite => [ "message" ]
+          remove_tag => ["beats_input_codec_plain_applied", "_grokparsefailure", "_geoip_lookup_failure"]
+	}
+	geoip {
+   	  source => "clientip"
+   	  target => "geoip"
+   	  add_tag => [ "geolocation" ]
+	}
+}
+output {
+    stdout {codec => rubydebug}
+     if "nginx" in [tags]{
+        elasticsearch {
+            hosts => "http://localhost:9200"
+            index => "nginx-%{+YYYY.MM.dd}"
+                      }
+     } else if  "wordpress" in [tags] {
+        elasticsearch {
+            hosts => "http://localhost:9200"
+            index => "wordpress-%{+YYYY.MM.dd}"
+                      }
+     }
+}
+

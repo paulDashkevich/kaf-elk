@@ -1,0 +1,7 @@
+---
+
+- name: filebeat enable
+  systemd:
+      name: filebeat
+      state: stopped
+      enabled: no

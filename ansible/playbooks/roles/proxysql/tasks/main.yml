@@ -1,0 +1,74 @@
+---
+
+- name: Remove repository (and clean up left-over metadata)
+  yum_repository:
+      name: elasticsearch-7.x
+      file: elastic
+      state: absent
+
+- name: yum-clean-metadata
+  command: yum clean metadata
+  args:
+        warn: no
+
+- name: Add ProxySQLv2 repository
+  blockinfile:
+    path: /etc/yum.repos.d/proxysql.repo
+    create: yes
+    block: |
+      [proxysql_repo]
+      name= ProxySQL YUM repository
+      baseurl=https://repo.proxysql.com/ProxySQL/proxysql-2.1.x/centos/\$releasever
+      gpgcheck=1
+      gpgkey=https://repo.proxysql.com/ProxySQL/repo_pub_key
+
+- name: Add Percona repository
+  yum:
+    name: https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+    state: present
+
+- name: Enable repository for pxc-80 and tools
+  shell: |
+    percona-release enable-only pxc-80 release
+    percona-release enable tools release
+
+- name: Install PXC (Percona XtraDB Cluster) client
+  yum:
+    name: percona-xtradb-cluster-client
+    state: present
+
+- name: install python-mysql addon
+  yum:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - proxysql2
+    - MySQL-python.x86_64
+    - python36-PyMySQL.noarch
+
+- name: ownership dir
+  shell: chown -R proxysql:proxysql /var/lib/proxysql
+
+- name: Start ProxySQL with configuration from config file /etc/proxysql.cnf
+  command: /usr/bin/proxysql --initial
+
+- name: creating proxysql user monitor
+  shell: mysql -u admin -padmin -h 127.0.0.1 -P 6032 -NBe "{{ item }}"
+  with_items:
+      - "INSERT INTO mysql_users (username,password) VALUES ('wp','wp_12345');"
+      - "LOAD MYSQL USERS TO RUNTIME;"
+      - "SAVE MYSQL USERS TO DISK;"
+      - "INSERT INTO mysql_servers(hostgroup_id, hostname, port) VALUES (0,'10.1.0.15',3306);"
+      - "INSERT INTO mysql_servers(hostgroup_id, hostname, port) VALUES (0,'10.1.0.16',3306);"
+      - "INSERT INTO mysql_servers(hostgroup_id, hostname, port) VALUES (0,'10.1.0.17',3306);"
+      - "UPDATE global_variables SET variable_value='monitor' WHERE variable_name='mysql-monitor_username';"
+      - "UPDATE global_variables SET variable_value='monitor' WHERE variable_name='mysql-monitor_password';"
+      - "LOAD MYSQL VARIABLES TO RUNTIME;"
+      - "SAVE MYSQL VARIABLES TO DISK;"
+      - "LOAD MYSQL SERVERS TO RUNTIME;"
+      - "SAVE MYSQL SERVERS TO DISK;"
+
+- name: chown cnf
+  shell: chown proxysql:proxysql /etc/proxysql.cnf
+  args:
+      warn: no

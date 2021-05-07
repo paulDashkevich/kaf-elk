@@ -1,0 +1,8 @@
+{% for host in play_hosts %}
+{% if 'ansible_eth1' in hostvars[host] %}
+{{ hostvars[host]['ansible_eth1']['ipv4']['address'] | join("") }}  {{ host }}
+{% endif %}
+{% if 'ansible_eth2' in hostvars[host] %}
+{{ hostvars[host]['ansible_eth2']['ipv4']['address'] | join("") }}  {{ host }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,8 @@
+ah_dc            = "ams1"
+ah_token         = "YOURETOPSECRETHOSTERTOKEN"
+ah_machine_type  = "start-xs"
+ah_machine_type2 = "start-l"
+ah_image_type    = "centos-7-x64"
+ah_hdd           = "ssd2-ams1"
+ah_fp            = "YORETOPSECRETHASHSSH"
+private_key_path = "/root/.ssh/id_rsa.pub"

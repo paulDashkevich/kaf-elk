@@ -1,0 +1,20 @@
+
+- name: Import a key from a url
+  ansible.builtin.rpm_key:
+        state: present
+        key: https://packages.elastic.co/GPG-KEY-elasticsearch
+        fingerprint: 4609 5ACC 8548 582C 1A26 99A9 D27D 666C D88E 42B4
+
+- name: Add elastic repository
+  blockinfile:
+        path: /etc/yum.repos.d/elastic.repo
+        create: yes
+        block: |
+         [elasticsearch-7.x]
+         name=Elasticsearch repository for 7.x packages
+         baseurl=https://artifacts.elastic.co/packages/oss-7.x/yum
+         gpgcheck=1
+         gpgkey=https://artifacts.elastic.co/GPG-KEY-elasticsearch
+         enabled=1
+         autorefresh=1
+         type=rpm-md

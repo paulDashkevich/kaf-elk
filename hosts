@@ -1,0 +1,16 @@
+[target]
+iscsi    ansible_host=185.177.xx.xx ansible_subnet1=10.1.0.10 ansible_subnet2=10.1.1.10
+[web_pcm]
+web0     ansible_host=185.177.xx.xx ansible_subnet1=10.1.0.11 ansible_subnet2=10.1.1.11
+web1     ansible_host=185.177.xx.xx ansible_subnet1=10.1.0.12 ansible_subnet2=10.1.1.12
+[pr]
+proxy    ansible_host=185.177.xx.xx ansible_subnet1=10.1.0.13 ansible_reverseproxy_ip=ip-185-177-xx-xx.ah-server.com
+[sql]
+proxysql ansible_host=185.177.xx.xx ansible_subnet1=10.1.0.14
+db1      ansible_host=185.177.xx.xx ansible_subnet1=10.1.0.15
+db2      ansible_host=185.177.xx.xx ansible_subnet1=10.1.0.16
+db3      ansible_host=185.177.xx.xx ansible_subnet1=10.1.0.17
+[logs]
+elk_1    ansible_host=185.177.xx.xx ansible_subnet2=10.1.1.7
+[kafka]
+kafka_1  ansible_host=185.177.xx.xx ansible_subnet2=10.1.1.8

@@ -1,0 +1,57 @@
+---
+
+- name: RedHat - Ensure Java is installed
+  yum:
+     name: java-1.8.0-openjdk
+     state: present
+  environment:
+     JAVA_HOME: /usr/lib/jvm/java-1.8.0-openjdk
+
+- name: yum-clean-metadata
+  command: yum clean metadata
+  args:
+      warn: no
+
+- name: Linux | Create User kafka
+  user:
+      name: kafka
+      password: ''
+      home: /home/kafka
+      shell: /bin/bash
+
+- name: unarchive kafka package
+  unarchive:
+      src: https://downloads.apache.org/kafka/2.8.0/kafka_2.13-2.8.0.tgz
+      dest: /home/kafka
+      remote_src: yes
+
+- name: moving data kafka
+  command: mv /home/kafka/kafka_2.13-2.8.0 /home/kafka/kafka
+
+- name: set kafka data dir
+  file: path=/home/kafka/kafka state=directory owner=kafka group=kafka
+
+- name: set kafka loggers dir
+  file: path=/tmp/kafka state=directory owner=kafka group=kafka
+
+- name: create zk systemd
+  template: src=zookeeper.systemd.j2 dest=/etc/systemd/system/zookeeper.service owner=root group=root mode=644 force=yes
+
+- name: create kafka server prop
+  template: src=server.properties.j2 dest=/home/kafka/kafka/config/server.properties owner=root group=root mode=644 force=yes
+
+- name: start kafka
+  template: src=kafka.systemd.j2 dest=/etc/systemd/system/kafka.service owner=root group=root mode=644 force=yes
+
+- name: start kafka service
+  systemd:
+       name: kafka
+       state: started
+       enabled: yes
+
+- name: reload systemd daemon
+  shell: "systemctl daemon-reload"
+  notify: restart zookeeper
+
+- name: reboot host
+  reboot:

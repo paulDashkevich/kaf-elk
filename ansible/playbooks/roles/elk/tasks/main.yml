@@ -1,0 +1,110 @@
+---
+
+- name: RedHat - Ensure Java is installed
+  yum:
+     name: java-1.8.0-openjdk
+     state: present
+  environment:
+     JAVA_HOME: /usr/lib/jvm/java-1.8.0-openjdk
+
+- name: RedHat - Install Elasticsearch
+  yum:
+      name: elasticsearch-oss
+      state: present
+      update_cache: yes
+  notify: restart elasticsearch
+  delay: 10
+  environment:
+      ES_PATH_CONF: "{{ es_conf_dir }}"
+
+- name: insert es config
+  template:
+      src: elasticsearch.yml.j2
+      dest: /etc/elasticsearch/elasticsearch.yml
+      owner: elasticsearch
+      group: elasticsearch
+
+- name: flush handlers
+  meta: flush_handlers
+
+- name: Make sure elasticsearch is started
+  service: name=elasticsearch state=started enabled=yes
+  when: es_start_service
+
+- name: Wait for elasticsearch to startup
+  wait_for: host={{ es_api_host }} port={{ es_api_port }} delay=5 connect_timeout=1
+  when: es_restarted is defined and es_restarted.changed and es_start_service
+
+- name: Install kibana
+  yum:
+      name: kibana-oss
+      state: present
+
+- name: Config kibana
+  template:
+      src: kibana.yml.j2
+      dest: /etc/kibana/kibana.yml
+
+- name: Install logstash
+  yum:
+      name: logstash
+      state: present
+
+- name: Insert conf pipelines
+  template:
+        src: pipelines.yml.j2
+        dest: /etc/logstash/pipelines.yml
+        owner: logstash
+        group: logstash
+
+- name: Insert conf.d logstash
+  template:
+        src: logstash-log.conf.j2
+        dest: /etc/logstash/conf.d/logstash-log.conf
+        owner: logstash
+        group: logstash
+
+- name: stop logstash service
+  systemd:
+        name: logstash
+        state: stopped
+
+- name: Config Logstash
+  template:
+        src: "{{ item }}"
+        dest: /etc/logstash/
+        owner: logstash
+        group: logstash
+  with_items:
+        - startup.options
+        - logstash.yml
+
+- name: Start kibana
+  systemd:
+        name: kibana
+        state: restarted
+        enabled: yes
+
+- name: Start logstash service and enabled
+  systemd:
+       name: logstash
+       state: started
+       enabled: yes
+
+- name: reboot host
+  reboot:
+
+- name: create index-patterns kibana
+  shell: |
+      curl -f -XPOST -H 'Content-Type: application/json' -H \
+      'kbn-xsrf: anything' \
+      'http://localhost:5601/api/saved_objects/index-pattern/nginx-*' \
+      '-d{"attributes":{"title":"nginx-*","timeFieldName":"@timestamp"}}' ;
+      sleep 3;
+      curl -f -XPOST -H 'Content-Type: application/json' -H \
+      'kbn-xsrf: anything' \
+      'http://localhost:5601/api/saved_objects/index-pattern/wordpress-*' \
+      '-d{"attributes":{"title":"wordpress-*","timeFieldName":"@timestamp"}}';
+      exit 0
+  args:
+     warn: no

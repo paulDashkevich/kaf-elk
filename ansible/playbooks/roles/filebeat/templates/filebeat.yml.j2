@@ -1,0 +1,30 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /mnt/gfs2/PHP/php-fpm/www-error.log
+  tags: ["wordpress"]
+  fields:
+    domashka: OTUS
+    logs: error log wordpress PHP-FPM
+    kafka_topic: "wordpress"
+  fields_under_root: false
+
+- type: log
+  enabled: true
+  paths:
+    - /var/log/nginx/*.log
+  tags: ["nginx"]
+  fields:
+    domashka: OTUS
+    logs: err and access NGINX
+    kafka_topic: "nginx"
+  fields_under_root: false
+
+filebeat.config.modules:
+  # Glob pattern for configuration loading
+  path: ${path.config}/modules.d/*.yml
+
+output.kafka:
+  hosts: ["kafka_1:9092"]
+  topic: '%{[fields.kafka_topic]}'

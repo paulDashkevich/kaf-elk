@@ -1,0 +1,19 @@
+---
+
+- name: install filebeat
+  yum:
+     name: filebeat
+     state: present
+  notify:
+     - filebeat enable
+
+- name: Copy config filebeat
+  template:
+      src: filebeat.yml.j2
+      dest: /etc/filebeat/filebeat.yml
+
+- name: start filebeat
+  systemd:
+      name: filebeat
+      state: stopped
+      enabled: no

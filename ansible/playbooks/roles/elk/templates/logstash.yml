@@ -1,0 +1,7 @@
+node.name: logstash-elk
+log.level: info
+http.host: "10.1.1.7"
+http.port: 9600
+config.reload.automatic: true
+config.reload.interval: 3s
+#config.test_and_exit: true
