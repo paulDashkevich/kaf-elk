@@ -18,7 +18,7 @@ _______________________
 *********************************
 Запуск стенда начинаем с терраформа
 ```
-terraform --apply-autoapprove
+terraform apply --autoapprove
 ```
 ansible
 ```
